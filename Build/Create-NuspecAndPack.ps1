@@ -1,4 +1,6 @@
-#Nuget.exe has to be in the folder that contains the projects that are to be built
+# The nuget.exe has to be in the folder that contains the projects that are to be built
+# It also relies on Create-NuspecFromStudioProject.ps1 
+
 param(
 	[Parameter(Mandatory = $true, Position = 1)]
 	[string] $projectFolder

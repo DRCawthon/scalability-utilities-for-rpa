@@ -1,3 +1,7 @@
+# It will take an UiPath project and create the nuspe file so that it can be further built into a nuget package.
+# Make sure the project.json file contains the correct dependencies of the project (clicking publish button in Studio does it for you).
+# If ProjectRevisionVersion is specified then it'll override the last two numbers from the nuget version for better tracking in Orchestrator.
+
 param(
     [Parameter(Mandatory = $true, Position = 1)]
     [string] $projectDirectory,

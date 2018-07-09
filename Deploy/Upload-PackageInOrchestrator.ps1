@@ -1,4 +1,6 @@
-﻿function UploadPackage
+﻿# This will take a nuget package of an UiPath project and will publish it into an Orchestrator instance
+
+function UploadPackage
 {
 	[CmdletBinding()]
 	param 
@@ -8,17 +10,29 @@
 		HelpMessage = 'Nuget package to upload, full path needed')]
 		[ValidateNotNullOrEmpty()]
 		[string]
-		$FilePath
+		$FilePath,
+        [Parameter(Mandatory = $true,
+				ValueFromPipeline = $true,
+		HelpMessage = 'Robot KEY required for authentication')]
+		[ValidateNotNullOrEmpty()]
+		[string]
+		$RobotKey,
+        [Parameter(Mandatory = $true,
+				ValueFromPipeline = $true,
+		HelpMessage = 'Robot KEY required for authentication')]
+		[ValidateNotNullOrEmpty()]
+		[string]
+        $OrchestratorURL
 	)
 
 	process
 	{
 		# Build the URI for our request
-		$URI = 'https://platform.uipath.com/odata/Processes/UiPath.Server.Configuration.OData.UploadPackage'
+		$URI =  $OrchestratorURL + '/odata/Processes/UiPath.Server.Configuration.OData.UploadPackage'
 
 		# Create our authentication header
 		$Headers = @{
-			Authorization = 'UiRobot c9b9129a-127a-4a7e-8d22-d876a947901a'
+			Authorization = 'UiRobot ' + $RobotKey
 		}
 
 		# The boundary is essential - Trust me, very essential

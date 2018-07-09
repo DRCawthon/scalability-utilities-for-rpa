@@ -1,4 +1,16 @@
-﻿try {
+﻿# This script is intended to be a Jenkins build step
+#
+# It has the following functionality: 
+# 1. Takes the sources from source control (SVN)
+# 2. Creates the nuget package of the project
+# 3. Publishes the package in Orchestrator
+#
+# It requires the following: 
+# 1. Environment variables: ORCH_USERNAME, ORCH_PASSWORD, SVN_REVISION 
+# 2. Binaries: nuget.exe
+# 3. Scripts: Create-NuspecAndPack.ps1 and Create-NuspecFromStudioProject.ps1 (located in the Build folder of current repository)
+#
+try {
     $username = "$($env:ORCH_USERNAME)"
     $pwd = "$($env:ORCH_PASSWORD)"
 

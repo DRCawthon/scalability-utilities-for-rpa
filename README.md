@@ -18,8 +18,17 @@ In order to aquire Robot Key to make the calls to Orchestrator please follow the
  It can be done in a browser easily. Its response will contain the license key that we're looking for. 
  The license key argument in this call is the Key you take from the Edit Robot view.
  
- Get-AssetsFromOrchestrator.ps1: TODO  
- Upload-AssetsInOrchestrator.ps1: TODO
+ Import-OrchestratorCmdlets.ps1: Gets the UiPath.PowerShell.dll and imports the cmdlets stored within for interacting with the Orchestrator API.
+ 
+ Get-AssetsFromOrchestrator.ps1: Gets the assets from an Orchestrator tenant and saves them in a file using json format.  
+ A filter can be passed so if tenant has assets ABCD_1, ABCD_2 and XXAA_3 and the filter is ABCD then the result will contain ABCD_1 and ABCD_2.
+ Requires: Import-OrchestratorCmdlets
+ 
+ Upload-AssetsInOrchestrator.ps1: Reads a file that contains the assets in json format exactly how Get-AssetsFromOrchestrator.ps1 exports. 
+ The assets are being pushed to the specified Orchestrator's tenant. Supported types: Text, Bool, Integer, Credential. 
+ Passwords are set to "nopassword" so that an admin can change them manually.
+ TBD: Per robot Assets
+ Requires: Import-OrchestratorCmdlets
  
  3. Examples - scripts in which you'll see the main utilities in action
  

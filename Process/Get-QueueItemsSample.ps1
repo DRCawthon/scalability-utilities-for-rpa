@@ -57,4 +57,5 @@ function GetQueueItemsSample
 
 #GetQueueItemsSample
 
-GetQueueItemsSample -OrchestratorURL "https://demo.uipath.com" -UserName "bogdan.popescu@uipath.com" -Password "Bogdan123$" -TenantName "scalability-testing" -Reference "Type A"
+
+GetQueueItemsSample -OrchestratorURL "https://demo.uipath.com" -UserName "user" -Password "pwd" -TenantName "tenant" -Reference "Type A"

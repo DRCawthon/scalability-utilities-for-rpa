@@ -1,0 +1,155 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description></description>
+  <keepDependencies>false</keepDependencies>
+  <properties/>
+  <scm class="hudson.scm.SubversionSCM" plugin="subversion@2.11.0">
+    <locations>
+      <hudson.scm.SubversionSCM_-ModuleLocation>
+        <remote>https://SVN_server:8443/svn/CI_Test</remote>
+        <credentialsId>f56639f8-01a4-4a82-ac74-089f10d102a0</credentialsId>
+        <local>svn_contents</local>
+        <depthOption>infinity</depthOption>
+        <ignoreExternalsOption>true</ignoreExternalsOption>
+        <cancelProcessOnExternalsFail>true</cancelProcessOnExternalsFail>
+      </hudson.scm.SubversionSCM_-ModuleLocation>
+    </locations>
+    <additionalCredentials>
+      <hudson.scm.SubversionSCM_-AdditionalCredentials>
+        <realm>https://SVN_server:8443/</realm>
+        <credentialsId>f56639f8-01a4-4a82-ac74-089f10d102a0</credentialsId>
+      </hudson.scm.SubversionSCM_-AdditionalCredentials>
+    </additionalCredentials>
+    <excludedRegions></excludedRegions>
+    <includedRegions></includedRegions>
+    <excludedUsers></excludedUsers>
+    <excludedRevprop></excludedRevprop>
+    <excludedCommitMessages></excludedCommitMessages>
+    <workspaceUpdater class="hudson.scm.subversion.CheckoutUpdater"/>
+    <ignoreDirPropChanges>false</ignoreDirPropChanges>
+    <filterChangelog>false</filterChangelog>
+    <quietOperation>true</quietOperation>
+  </scm>
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers>
+    <hudson.triggers.SCMTrigger>
+      <spec>H/15 * * * *</spec>
+      <ignorePostCommitHooks>false</ignorePostCommitHooks>
+    </hudson.triggers.SCMTrigger>
+  </triggers>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.plugins.powershell.PowerShell plugin="powershell@1.3">
+      <command>$username = &quot;$($env:ORCH_USERNAME)&quot;
+$pwd = &quot;$($env:ORCH_PASSWORD)&quot;
+
+#source for PowerShell add-in package - might make sense to point to internal location of file
+$psPkgName = &quot;UiPath.PowerShell.18.1.3.31520.zip&quot;
+$psPkgURL = &quot;http://github.com/UiPath/orchestrator-powershell/files/2017288/$($psPkgName)&quot;
+
+#########make params in build############
+$orchURL = &quot;https://demo-orch.deskover.local&quot;
+$tenantName = &quot;default&quot;
+
+$svnCheckoutFolder = &quot;svn_contents&quot; #folder that was setup as &quot;Local module directory&quot; in SVN step
+
+$svn = &quot;C:\Program Files\TortoiseSVN\bin\svn.exe&quot;
+(&amp; $svn upgrade &quot;$($env:WORKSPACE)\$($svnCheckoutFolder)&quot;) #for some reason versions of SVN in plugin and TortoiseSVN do not seem to match
+
+###########################import UiPath cmdlets#####################
+Write-Output &quot;downloading Orchestrator PowerShell extension library...&quot;
+$psArchiveName = 
+[Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+$cl = New-Object System.Net.WebClient
+$filepath = &quot;$($env:WORKSPACE)\$($svnCheckoutFolder)\$($psPkgName)&quot;
+$cl.DownloadFile($psPkgURL,$filepath)
+
+Write-Output &quot;Extracting Orchestrator PowerShell extension library...&quot;
+$shellApp = New-Object -Com shell.application
+$zipFile = $shellApp.namespace($filepath)
+$destination = $shellApp.namespace(&quot;$($env:WORKSPACE)\$($svnCheckoutFolder)\&quot;)
+$destination.Copyhere($zipFile.items())
+
+Write-Output &quot;Importing Orchestrator PowerShell extension library...&quot;
+Import-Module &quot;$($env:WORKSPACE)\$($svnCheckoutFolder)\UiPath.PowerShell.dll&quot;
+
+########copy scripts and nuget.exe stored in SVN repository to new folder############
+Copy-Item -Path &quot;$($env:WORKSPACE)\$($svnCheckoutFolder)\binaries\*&quot; -Destination &quot;$($env:WORKSPACE)\$($svnCheckoutFolder)&quot;
+
+Set-Location &quot;$($env:WORKSPACE)\$($svnCheckoutFolder)&quot;
+
+##### loop for all folders that represents RPA Projects- except binaries ###
+$directories = Get-ChildItem | ?{ $_.PSIsContainer } #get all child directories
+
+foreach($projectFolderName in ($directories | Where {$_.Name -ne &quot;binaries&quot;}))
+{
+    try {
+        
+       # $projectFolderName = &quot;WeatherReporter&quot; #for debugging, always use this
+
+        ########################################
+        Write-Output &quot;creating .nupkg file...&quot;
+
+        ## $latestrevnum should be per project/process/folder
+        $svnInfo = (&amp; $svn info &quot;$($env:WORKSPACE)\$($svnCheckoutFolder)\$($projectFolderName)&quot;) | Out-String
+        $svnInfo -match &quot;Last Changed Rev: (\d+)&quot;
+        $latestrevnum = $Matches[1]
+        Write-Output &quot;svn revision number is: &quot; $latestrevnum
+
+        # $latestrevnum = $env:SVN_REVISION
+
+        
+        ## check if orchestrator already has this version, if so - stop
+        #run script to create package from specific folder
+        .\Create-NuspecAndPack.ps1 -projectFolder $projectFolderName -projectRevisionVersion $latestrevnum
+
+        ##############find out the name of package####################
+        [xml]$projectMetadata = Get-Content &quot;$($projectFolderName).nuspec&quot;
+        $packageName = ($projectMetadata.package.metadata.id.ToString() + &quot;.&quot; + $projectMetadata.package.metadata.version.ToString() + &quot;.nupkg&quot;)
+        Write-Output &quot;Expected package name is $($packageName)&quot;
+
+        #upload package
+        Write-Output &quot;Obtain login token for $($username)&quot;
+        
+        $token = Get-UiPathAuthToken -URL $orchURL -Username $username -Password $pwd -TenantName $tenantName
+
+        Write-Output &quot;Get $packageName package version present in Orchestrator&quot;
+        $version = &quot;0.0.0.0&quot;
+        $packageInfo = (Get-UiPathPackage -AuthToken $token -Title $projectFolderName)
+        if($packageInfo.Version -ne $null)
+        {
+	        $version = $packageInfo.Version.ToString()
+        }
+        Write-Output &quot;Version is $($version), latestrevnum is $($latestrevnum)&quot;
+        
+        if([int]($version.Split(&apos;.&apos;)[3]) -ge [int]$latestrevnum)
+        {
+            Write-Output &quot;version is incremented, was $($version.Split(&apos;.&apos;)[3]), now $($latestrevnum)&quot;
+            #  Add-UiPathPackage -PackageFile &quot;$($env:WORKSPACE)\$($svnCheckoutFolder)\$($packageName)&quot; -AuthToken $token
+        }
+        #add commands to update jobs
+    }
+    catch {
+        Write-Output $_.Exception.Message
+        #exit 222
+    }
+}</command>
+    </hudson.plugins.powershell.PowerShell>
+  </builders>
+  <publishers/>
+  <buildWrappers>
+    <org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper plugin="credentials-binding@1.16">
+      <bindings>
+        <org.jenkinsci.plugins.credentialsbinding.impl.UsernamePasswordMultiBinding>
+          <credentialsId>orchestrator_credentials</credentialsId>
+          <usernameVariable>ORCH_USERNAME</usernameVariable>
+          <passwordVariable>ORCH_PASSWORD</passwordVariable>
+        </org.jenkinsci.plugins.credentialsbinding.impl.UsernamePasswordMultiBinding>
+      </bindings>
+    </org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper>
+  </buildWrappers>
+</project>

@@ -21,12 +21,12 @@
 		[ValidateNotNullOrEmpty()]
 		[string]
 		$Password,
-        [Parameter(Mandatory = $false,
+        [Parameter(Mandatory = $true,
 				ValueFromPipeline = $true,
 		HelpMessage = 'TenantName')]
 		[string]
 		$TenantName,
-        [Parameter(Mandatory = $false,
+        [Parameter(Mandatory = $true,
 				ValueFromPipeline = $true,
 		HelpMessage = 'Package file')]
 		[string]
